@@ -60,18 +60,23 @@
 
 @code {
 
-    private bool isScanning;
-    private bool isFinished;
-    private float progress;
-    private string message;
+    private bool isScanning = false;
+
+    // Set from StatusReply
+    private bool isFinished = false;
+    private float progress = 0f;
+    private string message = "";
 
     private string alertBackground => (isFinished) ? "alert-success" : "alert-secondary";
     private string progressBarWidth => (progress >= 1f) ? "100%" : Math.Round((progress * 100d), 2).ToString() + "%";
 
-    private string response;
-
+#nullable enable
     private CancellationTokenSource? cts;
+#nullable disable
 
+    /// <summary>
+    /// Resets UI via setting fields to default
+    /// </summary>
     private void Reset()
     {
         isScanning = false;
@@ -81,6 +86,22 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// UNUSED : Example to use CancellationToken
+    /// </summary>
+    private void CancelScan()
+    {
+        if (cts != null)
+            cts.Cancel();
+
+        Reset();
+    }
+
+    /// <summary>
+    /// Creates a new StatusReporterClient which then sends a StatusRequest
+    /// then listens to the Response Stream and sets fields accordingly
+    /// </summary>
+    /// <returns></returns>
     private async Task RunScan()
     {
         cts = new CancellationTokenSource();
