@@ -1,0 +1,23 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "GRPCServer";
+
+package status;
+
+// The greeting service definition.
+service StatusReporter {
+  // Sends a greeting
+  rpc RunScan (StatusRequest) returns (stream StatusReply);
+}
+
+// The request message containing the user's name.
+message StatusRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings.
+message StatusReply {
+  bool finished = 1;
+  float progress = 2;
+  string message = 3;
+}

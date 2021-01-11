@@ -1,0 +1,117 @@
+﻿@page "/"
+
+@inject GrpcChannel Channel
+@using Grpc.Core
+@using System.Threading
+
+<div class="shadow m-3 p-3">
+    <div class="alert alert-info">
+        <ul>
+            <li>Send gRPC Request to server (<code>StatusReportRequest</code>)</li>
+            <li>Listen to Response Stream (<code>StatusReporterResonse</code>)</li>
+            <li>Send Close with <code>CancellationTokenSource</code> on finish</li>
+        </ul>
+    </div>
+
+    <button type="button" class="btn btn-primary btn-lg btn-block" @onclick="RunScan">Run Scan</button>
+    <hr>
+    @if (isScanning || isFinished)
+    {
+        <div class="alert @alertBackground" role="alert">
+            <div class="d-flex align-items-center">
+
+                @if (isScanning)
+                {
+                    <h4 class="alert-heading">We are scanning...</h4>
+                    <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+                }
+                else
+                {
+                    <h4 class="alert-heading">Well done!</h4>
+                }
+            </div>
+            <hr />
+
+            @if (isFinished)
+            {
+                <p>Your Network has been scanned.</p>
+                <button type="button" class="btn btn-primary btn-lg btn-block" @onclick="Reset">Reset Example</button>
+
+            }
+            else
+            {
+                <p>We are now scanning the for devices in your network. Please wait.</p>
+            }
+
+            <div class="alert alert-primary mt-3">
+                <p>GRPC Server:</p>
+                Progress : @progress <br />
+                Is Scanning : @isScanning<br />
+                Is Finished : @isFinished<br />
+                Message : @message
+            </div>
+            <hr>
+            <div class="progress" style="height: 20px;">
+                <div class="progress-bar" role="progressbar" style="width: @progressBarWidth;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">@progressBarWidth</div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+
+    private bool isScanning;
+    private bool isFinished;
+    private float progress;
+    private string message;
+
+    private string alertBackground => (isFinished) ? "alert-success" : "alert-secondary";
+    private string progressBarWidth => (progress >= 1f) ? "100%" : Math.Round((progress * 100d), 2).ToString() + "%";
+
+    private string response;
+
+    private CancellationTokenSource? cts;
+
+    private void Reset()
+    {
+        isScanning = false;
+        isFinished = false;
+        progress = 0f;
+        message = "";
+        StateHasChanged();
+    }
+
+    private async Task RunScan()
+    {
+        cts = new CancellationTokenSource();
+        isScanning = true;
+
+        var client = new StatusReporter.StatusReporterClient(Channel);
+        using var call = client.RunScan(new StatusRequest() { Name = "Test" }, cancellationToken: cts.Token);
+
+        try
+        {
+            await foreach (var message in call.ResponseStream.ReadAllAsync())
+            {
+                progress = message.Progress;
+                isFinished = message.Finished;
+                this.message = message.Message;
+                StateHasChanged();
+            }
+
+            if (isFinished)
+            {
+                isScanning = false;
+                isFinished = true;
+                StateHasChanged();
+                cts.Cancel();
+                cts = null;
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
+        {
+            // Ignore exception from cancellation
+        }
+    }
+
+}
